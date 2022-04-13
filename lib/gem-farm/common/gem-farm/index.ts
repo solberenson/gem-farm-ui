@@ -243,20 +243,16 @@ export class GemFarm extends GemFarmClient {
     return result
   }
 
-  async stakeWallet(farm: PublicKey) {
-    const result = await this.stake(farm, this.wallet.publicKey)
+  async stakeWalletIx(farm: PublicKey) {
+    const { builder } = await this.buildStakeCommon(farm, this.wallet.publicKey)
 
-    console.log("begun staking for farmer", this.wallet.publicKey.toBase58())
-
-    return result
+    return builder.instruction()
   }
 
-  async unstakeWallet(farm: PublicKey) {
-    const result = await this.unstake(farm, this.wallet.publicKey)
+  async unstakeWalletIx(farm: PublicKey) {
+    const { builder } = await this.buildStakeCommon(farm, this.wallet.publicKey, true)
 
-    console.log("ended staking for farmer", this.wallet.publicKey.toBase58())
-
-    return result
+    return builder.instruction()
   }
 
   async claimWallet(

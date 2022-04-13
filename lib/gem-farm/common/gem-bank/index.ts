@@ -65,7 +65,7 @@ export class GemBank extends GemBankClient {
     return this.setVaultLock(bank, vault, this.wallet.publicKey, vaultLocked)
   }
 
-  async depositGemWallet(
+  async depositGemWalletIx(
     bank: PublicKey,
     vault: PublicKey,
     gemAmount: BN,
@@ -77,7 +77,7 @@ export class GemBank extends GemBankClient {
     const [creatorProof, bump2] = await findWhitelistProofPDA(bank, creator)
     const metadata = await programs.metadata.Metadata.getPDA(gemMint)
 
-    return this.depositGem(
+    const { builder } = await this.buildDepositGem(
       bank,
       vault,
       this.wallet.publicKey,
@@ -88,15 +88,17 @@ export class GemBank extends GemBankClient {
       metadata,
       creatorProof
     )
+
+    return builder.instruction()
   }
 
-  async withdrawGemWallet(
+  async withdrawGemWalletIx(
     bank: PublicKey,
     vault: PublicKey,
     gemAmount: BN,
     gemMint: PublicKey
   ) {
-    return this.withdrawGem(
+    const { builder } = await this.buildWithdrawGem(
       bank,
       vault,
       this.wallet.publicKey,
@@ -104,6 +106,8 @@ export class GemBank extends GemBankClient {
       gemMint,
       this.wallet.publicKey
     )
+
+    return builder.instruction()
   }
 
   async addToWhitelistWallet(

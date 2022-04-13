@@ -3,7 +3,7 @@ import { SignerWalletAdapter } from "@solana/wallet-adapter-base"
 import { useEffect, useState, useCallback } from "react"
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react"
 import { BN } from "@project-serum/anchor"
-import { PublicKey } from "@solana/web3.js"
+import { PublicKey, Transaction } from "@solana/web3.js"
 
 import useWalletNFTs, { NFT } from "hooks/useWalletNFTs"
 import { initGemBank } from "lib/gem-farm/common/gem-bank"
@@ -192,120 +192,87 @@ const useGemFarmStaking = (farmId: string) => {
     })
   }
 
-  const depositGem = async (
-    mint: PublicKey,
-    creator: PublicKey,
-    source: PublicKey
-  ) => {
-    if (!gemBankClient)
-      throw new Error("No Gem Bank client has been initialized.")
-
-    const { txSig } = await gemBankClient.depositGemWallet(
-      new PublicKey(farmAccount.bank),
-      new PublicKey(farmerAccount.vault),
-      new BN(1),
-      mint,
-      source,
-      creator
-    )
-
-    await connection.confirmTransaction(txSig)
-    console.log("[Staking Hook] deposit done", txSig)
-
-    return txSig
-  }
-
-  const withdrawGem = async (mint: PublicKey) => {
-    if (!gemBankClient)
-      throw new Error("No Gem Bank client has been initialized.")
-
-    const { txSig } = await gemBankClient.withdrawGemWallet(
-      farmAccount.bank,
-      farmerAccount.vault,
-      new BN(1),
-      mint
-    )
-
-    await connection.confirmTransaction(txSig)
-    console.log("[Staking Hook] withdrawal done", txSig)
-
-    return txSig
-  }
-
-  const handleMoveToVaultButtonClick = async () => {
+  const handleStakeButtonClick = async () => {
     if (!gemFarmClient || !gemBankClient)
       throw new Error("No Gem Bank client has been initialized.")
 
-    setFeedbackStatus("Depositing Gems to the vault...")
+    const tx = new Transaction()
+    setFeedbackStatus("Staking...")
+    if (farmerVaultAccount?.locked) {
+      // Unlock vault
+      tx.add(await gemFarmClient.unstakeWalletIx(new PublicKey(farmId!)))
+      // End cooldown
+      tx.add(await gemFarmClient.unstakeWalletIx(new PublicKey(farmId!)))
+    }
+
     for (const nft of selectedWalletItems) {
       const creator = new PublicKey(
         nft.onChain.metaData.data.creators?.[0].address || ""
       )
 
-      await depositGem(
-        new PublicKey(nft.onChain.metaData.mint),
-        creator,
-        new PublicKey(nft.onChain.tokenAccount)
+      tx.add(
+        await gemBankClient.depositGemWalletIx(
+          new PublicKey(farmAccount.bank),
+          new PublicKey(farmerAccount.vault),
+          new BN(1),
+          new PublicKey(nft.onChain.metaData.mint),
+          new PublicKey(nft.onChain.tokenAccount),
+          creator
+        )
       )
     }
 
-    await fetchFarmerAccount(gemFarmClient, gemBankClient)
-    await refetchNFTs()
+    tx.add(await gemFarmClient.stakeWalletIx(new PublicKey(farmId!)))
 
-    setFeedbackStatus("")
-
-    setSelectedVaultItems([])
-    setSelectedWalletItems([])
-  }
-
-  const handleMoveToWalletButtonClick = async () => {
-    if (!gemFarmClient || !gemBankClient)
-      throw new Error("No Gem Bank client has been initialized.")
-
-    setFeedbackStatus("Withdrawing Gems...")
-    for (const nft of selectedVaultItems) {
-      await withdrawGem(new PublicKey(nft.onChain.metaData.mint))
-    }
-
-    await fetchFarmerAccount(gemFarmClient, gemBankClient)
-    await refetchNFTs()
-
-    setFeedbackStatus("")
-
-    setSelectedVaultItems([])
-    setSelectedWalletItems([])
-  }
-
-  const handleStakeButtonClick = async () => {
-    if (!gemFarmClient || !gemBankClient)
-      throw new Error("No Gem Bank client has been initialized.")
-
-    setFeedbackStatus("Staking...")
-    const { txSig } = await gemFarmClient.stakeWallet(new PublicKey(farmId!))
-
+    const txSig = await gemFarmClient.provider.send(tx)
     await connection.confirmTransaction(txSig)
 
     await fetchFarmerAccount(gemFarmClient, gemBankClient)
     await refetchNFTs()
 
     setFeedbackStatus("")
-    // selectedNFTs.value = [];
+
+    setSelectedVaultItems([])
+    setSelectedWalletItems([])
   }
 
   const handleUnstakeButtonClick = async () => {
     if (!gemFarmClient || !gemBankClient)
       throw new Error("No Gem Bank client has been initialized.")
 
+    const tx = new Transaction()
     setFeedbackStatus("Unstaking wallet...")
-    const { txSig } = await gemFarmClient.unstakeWallet(new PublicKey(farmId!))
+    // Unlock vault
+    tx.add(await gemFarmClient.unstakeWalletIx(new PublicKey(farmId!)))
+    // End cooldown
+    tx.add(await gemFarmClient.unstakeWalletIx(new PublicKey(farmId!)))
 
+    for (const nft of selectedVaultItems) {
+      tx.add(
+        await gemBankClient.withdrawGemWalletIx(
+          farmAccount.bank,
+          farmerAccount.vault,
+          new BN(1),
+          new PublicKey(nft.onChain.metaData.mint)
+        )
+      )
+    }
+
+    if (selectedVaultItems.length < farmerAccount.gemsStaked.toNumber()) {
+      // Re-stake remaining
+      tx.add(await gemFarmClient.stakeWalletIx(new PublicKey(farmId!)))
+    }
+
+    const txSig = await gemFarmClient.provider.send(tx)
     await connection.confirmTransaction(txSig)
 
     await fetchFarmerAccount(gemFarmClient, gemBankClient)
     await refetchNFTs()
 
     setFeedbackStatus("")
-    // selectedNFTs.value = [];
+
+    setSelectedVaultItems([])
+    setSelectedWalletItems([])
   }
 
   const handleClaimButtonClick = async () => {
@@ -384,11 +351,9 @@ const useGemFarmStaking = (farmId: string) => {
     handleUnstakeButtonClick,
     handleClaimButtonClick,
     handleWalletItemClick,
-    handleMoveToVaultButtonClick,
     handleInitStakingButtonClick,
     farmerVaultNFTs,
     selectedVaultItems,
-    handleMoveToWalletButtonClick,
     handleVaultItemClick,
     handleRefreshRewardsButtonClick,
   }

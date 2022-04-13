@@ -27,10 +27,8 @@ const StakePage = () => {
     handleUnstakeButtonClick,
     handleClaimButtonClick,
     handleWalletItemClick,
-    handleMoveToVaultButtonClick,
     farmerVaultNFTs,
     selectedVaultItems,
-    handleMoveToWalletButtonClick,
     handleVaultItemClick,
     handleInitStakingButtonClick,
     handleRefreshRewardsButtonClick,
@@ -144,27 +142,6 @@ const StakePage = () => {
                   }}
                 >
                   <Button
-                    onClick={handleStakeButtonClick}
-                    disabled={
-                      !(farmerStatus === "unstaked" && farmerVaultNFTs?.length)
-                    }
-                  >
-                    Stake
-                  </Button>
-                  <Button
-                    onClick={handleUnstakeButtonClick}
-                    disabled={
-                      !(
-                        farmerStatus === "staked" ||
-                        farmerStatus === "pendingCooldown"
-                      )
-                    }
-                  >
-                    {farmerStatus === "pendingCooldown"
-                      ? "End cooldown"
-                      : "Unstake"}
-                  </Button>
-                  <Button
                     onClick={handleClaimButtonClick}
                     disabled={!Number(availableA)}
                   >
@@ -215,7 +192,7 @@ const StakePage = () => {
             >
               <TabList>
                 <Tab>Your wallet</Tab>
-                <Tab>Your vault</Tab>
+                <Tab>Staked</Tab>
               </TabList>
 
               <TabPanel>
@@ -256,9 +233,7 @@ const StakePage = () => {
                             <CollectionItem
                               key={item.onChain.metaData.mint}
                               item={item}
-                              onClick={
-                                !isLocked ? handleWalletItemClick : () => true
-                              }
+                              onClick={handleWalletItemClick}
                               sx={{
                                 maxWidth: "16rem",
                                 "> img": {
@@ -272,14 +247,14 @@ const StakePage = () => {
                           )
                         })}
                       </div>
-                      {walletNFTs.length && !isLocked ? (
+                      {walletNFTs.length ? (
                         <Text
                           sx={{
                             margin: "3.2rem 0 .8rem 0",
                           }}
                           variant="small"
                         >
-                          Select NFTs to move them to your Vault.
+                          Select NFTs to Stake.
                         </Text>
                       ) : null}
                       <Text>
@@ -289,9 +264,9 @@ const StakePage = () => {
                           .map((NFT) => NFT.onChain.metaData.data.name)
                           .join(", ")
                       : null} */}
-                        {selectedWalletItems?.length && !isLocked ? (
-                          <Button onClick={handleMoveToVaultButtonClick}>
-                            Deposit selected
+                        {selectedWalletItems?.length ? (
+                          <Button onClick={handleStakeButtonClick}>
+                            Stake selected
                           </Button>
                         ) : null}
                       </Text>
@@ -304,7 +279,7 @@ const StakePage = () => {
                         alignSelf: "stretch",
                       }}
                     >
-                      <Text>There are no Elven NFTs on your wallet.</Text>
+                      <Text>There are no NFTs on your wallet.</Text>
                     </Flex>
                   )
                 ) : /** No walletNFTs and public key, means it is loading */
@@ -373,11 +348,7 @@ const StakePage = () => {
                                 <CollectionItem
                                   key={item.onChain.metaData.mint}
                                   item={item}
-                                  onClick={
-                                    !isLocked
-                                      ? handleVaultItemClick
-                                      : () => true
-                                  }
+                                  onClick={handleVaultItemClick}
                                   sx={{
                                     maxWidth: "16rem",
                                     "> img": {
@@ -391,14 +362,14 @@ const StakePage = () => {
                               )
                             })}
                           </div>
-                          {farmerVaultNFTs.length && !isLocked ? (
+                          {farmerVaultNFTs.length ? (
                             <Text
                               sx={{
                                 margin: "3.2rem 0 .8rem 0",
                               }}
                               variant="small"
                             >
-                              Select NFTs to withdraw them to your wallet.
+                              Select NFTs to unstake.
                             </Text>
                           ) : null}
 
@@ -408,11 +379,9 @@ const StakePage = () => {
                           {selectedVaultItems
                             .map((NFT) => NFT.onChain.metaData.data.name)
                             .join(", ")} */}
-                              {!isLocked ? (
-                                <Button onClick={handleMoveToWalletButtonClick}>
-                                  Withdraw selected
+                                <Button onClick={handleUnstakeButtonClick}>
+                                  Unstake selected
                                 </Button>
-                              ) : null}
                             </>
                           ) : null}
                         </Flex>
@@ -424,7 +393,7 @@ const StakePage = () => {
                             alignSelf: "stretch",
                           }}
                         >
-                          <Text>There are no NFTs on your vault.</Text>
+                          <Text>There are no NFTs staked.</Text>
                         </Flex>
                       )
                     ) : /** No vaultNFTs and public key, means it is loading */
